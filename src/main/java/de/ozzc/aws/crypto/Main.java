@@ -7,13 +7,24 @@ import com.amazonaws.encryptionsdk.jce.JceMasterKey;
 import com.amazonaws.encryptionsdk.kms.KmsMasterKeyProvider;
 import com.amazonaws.encryptionsdk.multi.MultipleProviderFactory;
 import com.amazonaws.util.IOUtils;
+import org.bouncycastle.openssl.PEMKeyPair;
+import org.bouncycastle.openssl.PEMParser;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
 import java.security.*;
+import java.security.interfaces.RSAPrivateCrtKey;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.RSAPublicKeySpec;
 
 /**
  * Copied from https://github.com/awslabs/aws-encryption-sdk-java
+ *
+ * Note: This example requires you to have the Java Cryptography Extension (JCE) Unlimited Strength Jurisdiction Policy Files 8 installed.
+ * http://www.oracle.com/technetwork/java/javase/downloads/jce8-download-2133166.html
+ *
  *
  */
 public class Main {
@@ -22,12 +33,11 @@ public class Main {
     private static PrivateKey privateEscrowKey;
 
     public static void main(final String[] args) throws Exception {
-        // In the real world, the public key would be distributed by the organization.
-        // For this demo, we'll just generate a new random one each time.
-        generateEscrowKeyPair();
 
-        final String kmsArn = args[0];
-        final String fileName = args[1];
+        loadEscrowKeyPair(args[0]);
+
+        final String kmsArn = args[1];
+        final String fileName = args[2];
 
         standardEncrypt(kmsArn, fileName);
         standardDecrypt(kmsArn, fileName);
@@ -113,12 +123,18 @@ public class Main {
 
     }
 
-    private static void generateEscrowKeyPair() throws GeneralSecurityException {
-        final KeyPairGenerator kg = KeyPairGenerator.getInstance("RSA");
-        kg.initialize(4096); // Escrow keys should be very strong
-        final KeyPair keyPair = kg.generateKeyPair();
-        publicEscrowKey = keyPair.getPublic();
-        privateEscrowKey = keyPair.getPrivate();
+    private static void loadEscrowKeyPair(final String privateKeyFile) throws GeneralSecurityException, IOException {
+        PEMKeyPair clientKeyPair;
+        try (PEMParser clientPrivateKeyParser =
+                     new PEMParser(new FileReader(privateKeyFile))) {
+            clientKeyPair = (PEMKeyPair) clientPrivateKeyParser.readObject();
+        }
 
+        final KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        final PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(clientKeyPair.getPrivateKeyInfo().getEncoded());
+        privateEscrowKey = keyFactory.generatePrivate(spec);
+        RSAPrivateCrtKey privk = (RSAPrivateCrtKey)privateEscrowKey;
+        RSAPublicKeySpec publicKeySpec = new java.security.spec.RSAPublicKeySpec(privk.getModulus(), privk.getPublicExponent());
+        publicEscrowKey = keyFactory.generatePublic(publicKeySpec);
     }
 }

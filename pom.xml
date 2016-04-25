@@ -65,6 +65,10 @@
         </dependency>
         <dependency>
             <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-kms</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.amazonaws</groupId>
             <artifactId>aws-encryption-sdk-java</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
